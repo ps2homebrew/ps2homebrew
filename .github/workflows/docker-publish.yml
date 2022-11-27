@@ -13,6 +13,8 @@ on:
     tags: ["v*.*.*"]
   pull_request:
     branches: [main]
+  repository_dispatch:
+    types: [run_build]
 
 env:
   # Use docker.io for Docker Hub if empty
