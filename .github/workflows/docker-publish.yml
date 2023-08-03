@@ -1,4 +1,4 @@
-# source: https://github.com/actions/starter-workflows/blob/970a7b52557fbdf7dc31c20e64499c21f45deff2/ci/docker-publish.yml
+# source: https://github.com/actions/starter-workflows/blob/a07603e5efb78778ca8291d20a54900f0024e0b8/ci/docker-publish.yml
 name: Docker
 
 # This workflow uses actions that are not certified by GitHub.
@@ -10,7 +10,7 @@ on:
   push:
     branches: [main]
     # Publish semver tags as releases.
-    tags: ["v*.*.*"]
+    tags: [ 'v*.*.*' ]
   pull_request:
     branches: [main]
   repository_dispatch:
@@ -22,8 +22,10 @@ env:
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
 
+
 jobs:
   build:
+
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,9 +42,9 @@ jobs:
       # # https://github.com/sigstore/cosign-installer
       # - name: Install cosign
       #   if: github.event_name != 'pull_request'
-      #   uses: sigstore/cosign-installer@7e0881f8fe90b25e305bbf0309761e9314607e25
+      #   uses: sigstore/cosign-installer@6e04d228eb30da1757ee4e1dd75a0ec73a653e06 #v3.1.1
       #   with:
-      #     cosign-release: "v1.9.0"
+      #     cosign-release: 'v2.1.1'
 
       # Workaround: https://github.com/docker/build-push-action/issues/461
       - name: Setup Docker buildx
@@ -76,6 +78,10 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+
       # # Sign the resulting Docker image digest except on PRs.
       # # This will only write to the public Rekor transparency log when the Docker
       # # repository is public to avoid leaking data.  If you would like to publish
@@ -84,7 +90,9 @@ jobs:
       # - name: Sign the published Docker image
       #   if: ${{ github.event_name != 'pull_request' }}
       #   env:
-      #     COSIGN_EXPERIMENTAL: "true"
+      #     # https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable
+      #     TAGS: ${{ steps.meta.outputs.tags }}
+      #     DIGEST: ${{ steps.build-and-push.outputs.digest }}
       #   # This step uses the identity token to provision an ephemeral certificate
       #   # against the sigstore community Fulcio instance.
-      #   run: cosign sign ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
+      #   run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
