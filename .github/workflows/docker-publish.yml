@@ -97,3 +97,25 @@ jobs:
       #   # This step uses the identity token to provision an ephemeral certificate
       #   # against the sigstore community Fulcio instance.
       #   run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+  dispatch:
+    needs: build
+    strategy:
+      matrix:
+        repo: ["wlaunchELF", "Open-PS2-Loader", "isjpcm", "Fceumm-PS2"]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Send Compile action
+        run: |
+          export DISPATCH_ACTION="$(echo run_build)"
+          echo "NEW_DISPATCH_ACTION=$DISPATCH_ACTION" >> $GITHUB_ENV
+
+      - name: Dispatch to organization repositories
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          repository: ${{ github.repository_owner }}/${{ matrix.repo }}
+          token: ${{ secrets.DISPATCH_TOKEN }}
+          event-type: ${{ env.NEW_DISPATCH_ACTION }}
+          client-payload: '{"ref": "${{ github.ref }}"}'
