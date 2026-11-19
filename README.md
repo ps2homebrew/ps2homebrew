@@ -1,7 +1,12 @@
 # ps2homebrew docker images
 
 Build environments for PS2 homebrew, published to the GitHub Container Registry by
-[docker-publish.yml](.github/workflows/docker-publish.yml). Both images are `linux/amd64`.
+[docker-publish.yml](.github/workflows/docker-publish.yml).
+
+`:main` is a multi-arch image: `linux/amd64` and `linux/arm64`. Docker and podman pick the
+variant of the host, so Apple Silicon Macs and ARM Linux machines run it natively instead of
+through emulation. To force the x86 variant: `--platform linux/amd64`. `:v1.0` is `linux/amd64`
+only: the legacy toolchain was never built for ARM.
 
 | Image | Toolchain | Host tools |
 |---|---|---|

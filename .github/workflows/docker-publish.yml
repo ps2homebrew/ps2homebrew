@@ -27,8 +27,9 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-    # main: Dockerfile (current ps2dev), published as :main (and :<git tag>)
-    # v1.0: Dockerfile.v1.0 (legacy ps2dev v1.0), published as :v1.0 from the default branch
+    # main: Dockerfile (current ps2dev), published as :main (and :<git tag>), amd64 + arm64
+    # v1.0: Dockerfile.v1.0 (legacy ps2dev v1.0), published as :v1.0 from the default branch,
+    #       amd64 only (the v1.0 toolchain exists only for x86)
     strategy:
       fail-fast: false
       matrix:
@@ -36,9 +37,11 @@ jobs:
           - variant: main
             dockerfile: Dockerfile
             tags: ''  # metadata-action defaults: branch, git tag, pr
+            platforms: linux/amd64,linux/arm64
           - variant: v1.0
             dockerfile: Dockerfile.v1.0
             tags: type=raw,value=v1.0,enable={{is_default_branch}}
+            platforms: linux/amd64
     permissions:
       contents: read
       packages: write
@@ -57,6 +60,12 @@ jobs:
       #   uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
       #   with:
       #     cosign-release: 'v2.2.4'
+
+      # QEMU runs the arm64 build on the amd64 runner
+      # https://github.com/docker/setup-qemu-action
+      - name: Set up QEMU
+        if: contains(matrix.platforms, 'arm64')
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
 
       # Set up BuildKit Docker container builder to be able to build
       # multi-platform images and export cache
@@ -91,8 +100,9 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
-          # amd64 only, as before: the image is used by CI runners and x86 PCs
-          platforms: linux/amd64
+          # one multi-arch tag: amd64 hosts (CI runners, x86 PCs) get the same amd64 image
+          # as before, arm64 hosts (Apple Silicon, ARM Linux) a native one
+          platforms: ${{ matrix.platforms }}
           push: ${{ github.event_name != 'pull_request' && steps.meta.outputs.tags != '' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
