@@ -1,0 +1,31 @@
+# ghcr.io/ps2homebrew/ps2homebrew:v1.0
+# Legacy ps2dev v1.0 toolchain (ghcr.io/ps2dev/ps2dev:v1.0: EE gcc 3.2.3, ps2sdk of 2021) for
+# projects that do not build with the current SDK, e.g. Simple Media System.
+# Unlike the original image it already has make, git, zip and bash, so builds need no
+# "apk add" (there is no host C compiler: the PS2 builds do not need one). amd64 only.
+# The toolchain tree is slimmed the same way as in Dockerfile (slim_ps2dev.sh).
+
+FROM ghcr.io/ps2dev/ps2dev:v1.0 AS source
+COPY slim_ps2dev.sh /tmp/
+RUN sh /tmp/slim_ps2dev.sh
+
+# the Alpine release of ps2dev:v1.0
+FROM alpine:3.13
+
+RUN apk add --no-cache \
+    make \
+    git \
+    zip \
+    bash \
+ && git config --system --add safe.directory '*'
+
+COPY --from=source /usr/local/ps2dev /usr/local/ps2dev
+
+ENV PS2DEV=/usr/local/ps2dev
+ENV PS2SDK=$PS2DEV/ps2sdk
+ENV GSKIT=$PS2DEV/gsKit
+ENV PATH=$PATH:$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin
+
+RUN ee-gcc --version && iop-gcc --version
+
+CMD ["/bin/bash"]

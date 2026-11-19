@@ -27,6 +27,18 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    # main: Dockerfile (current ps2dev), published as :main (and :<git tag>)
+    # v1.0: Dockerfile.v1.0 (legacy ps2dev v1.0), published as :v1.0 from the default branch
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: main
+            dockerfile: Dockerfile
+            tags: ''  # metadata-action defaults: branch, git tag, pr
+          - variant: v1.0
+            dockerfile: Dockerfile.v1.0
+            tags: type=raw,value=v1.0,enable={{is_default_branch}}
     permissions:
       contents: read
       packages: write
@@ -69,6 +81,7 @@ jobs:
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: ${{ matrix.tags }}
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
@@ -77,11 +90,14 @@ jobs:
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          file: ${{ matrix.dockerfile }}
+          # amd64 only, as before: the image is used by CI runners and x86 PCs
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' && steps.meta.outputs.tags != '' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.variant }}
+          cache-to: type=gha,scope=${{ matrix.variant }},mode=max
 
       # # Sign the resulting Docker image digest except on PRs.
       # # This will only write to the public Rekor transparency log when the Docker
@@ -99,6 +115,8 @@ jobs:
       #   run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
   dispatch:
     needs: build
+    # downstream rebuilds only make sense when a new image was published
+    if: github.event_name != 'pull_request'
     strategy:
       matrix:
         repo: ["wlaunchELF", "Open-PS2-Loader", "isjpcm", "Fceumm-PS2"]
